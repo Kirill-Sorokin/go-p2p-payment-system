@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
 
@@ -19,31 +18,6 @@ var upgrader = websocket.Upgrader{
 var clients = make(map[*websocket.Conn]bool)
 var broadcast = make(chan Transaction)
 var mu sync.Mutex
-
-func startServer() {
-	r := gin.Default()
-
-	// Set trusted proxies
-	err := r.SetTrustedProxies([]string{"127.0.0.1"})
-	if err != nil {
-		log.Fatalf("Error setting trusted proxies: %v", err)
-	}
-
-	r.LoadHTMLGlob("templates/*")
-	r.Static("/static", "./static")
-
-	r.GET("/", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "index.html", gin.H{})
-	})
-
-	r.GET("/ws", func(c *gin.Context) {
-		handleConnections(c.Writer, c.Request)
-	})
-
-	go handleMessages()
-
-	r.Run(":8080")
-}
 
 func handleConnections(w http.ResponseWriter, r *http.Request) {
 	ws, err := upgrader.Upgrade(w, r, nil)
@@ -72,12 +46,11 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 func handleMessages() {
 	for {
 		msg := <-broadcast
-		formattedMessage := formatTransaction(msg)
-		log.Println(formattedMessage)
+		log.Println("Broadcasting transaction: ", msg)
 
 		mu.Lock()
 		for client := range clients {
-			err := client.WriteJSON(formattedMessage)
+			err := client.WriteJSON(msg)
 			if err != nil {
 				log.Printf("WebSocket error: %v", err)
 				client.Close()
@@ -94,9 +67,6 @@ func broadcastTransaction(transaction Transaction) {
 
 func formatTransaction(transaction Transaction) string {
 	timestamp := transaction.Timestamp.Format("2006-01-02 15:04:05")
-	return "Sender: " + transaction.Sender +
-		", Receiver: " + transaction.Receiver +
-		", Amount: " + fmt.Sprintf("%d", transaction.Amount) +
-		", Date: " + timestamp[:10] +
-		", Time: " + timestamp[11:]
+	return fmt.Sprintf("Sender: %s, Receiver: %s, Amount: %d, Date: %s, Time: %s",
+		transaction.Sender, transaction.Receiver, transaction.Amount, timestamp[:10], timestamp[11:])
 }

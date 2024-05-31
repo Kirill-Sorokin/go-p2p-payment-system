@@ -18,9 +18,9 @@
         const ws = new WebSocket('ws://' + window.location.host + '/ws');
 
         ws.onmessage = function(event) {
-            const transaction = event.data;
+            const transaction = JSON.parse(event.data);
             const listItem = document.createElement('li');
-            listItem.textContent = transaction;
+            listItem.textContent = `Sender: ${transaction.Sender}, Receiver: ${transaction.Receiver}, Amount: ${transaction.Amount}, Date: ${transaction.Timestamp.slice(0, 10)}, Time: ${transaction.Timestamp.slice(11, 19)}`;
             transactionList.appendChild(listItem);
         };
 
